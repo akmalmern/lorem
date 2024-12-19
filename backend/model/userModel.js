@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
-
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const userSchema = new mongoose.Schema(
   {
     userName: {
@@ -29,6 +30,35 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// encrypting password before saving
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    next();
+  }
+  this.password = await bcrypt.hash(this.password, 15);
+});
+
+// verify password
+userSchema.methods.comparePassword = async function (yourPassword) {
+  try {
+    return await bcrypt.compare(yourPassword, this.password);
+  } catch (error) {
+    console.log("Parolni tekshirishda xato:", error);
+  }
+};
+// // accesstoken
+userSchema.methods.jwtGenerateToken = function () {
+  return jwt.sign({ id: this.id }, process.env.JWT_ACCESS_TOKEN, {
+    expiresIn: 60 * 60 * 1000,
+  });
+};
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign({ id: this.id }, process.env.JWT_REFRESH_TOKEN, {
+    expiresIn: 7 * 24 * 60 * 60 * 1000, // 7 kunlik amal qilish muddati
+  });
+};
+
 const userModel = mongoose.model("userModel", userSchema);
 
 module.exports = userModel;
